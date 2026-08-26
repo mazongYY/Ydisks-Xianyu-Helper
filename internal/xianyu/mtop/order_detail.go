@@ -152,6 +152,25 @@ func (c *ClientImpl) fetchOrderDetailOnce(ctx context.Context, cookiesStr, order
 			}
 			result.SpecName = mtopString(itemInfo["specName"])
 			result.SpecValue = mtopString(itemInfo["specValue"])
+			if result.SpecName == "" && result.SpecValue == "" {
+				// 部分订单详情把规格放在 skuInfo（形如「卡类:无限日卡」，多组用分号/逗号分隔）。
+				if skuInfo := mtopString(itemInfo["skuInfo"]); skuInfo != "" {
+					var specNames, specValues []string
+					normalized := strings.ReplaceAll(skuInfo, "：", ":")
+					for _, part := range strings.FieldsFunc(normalized, func(r rune) bool {
+						return r == ';' || r == '；' || r == ',' || r == '，'
+					}) {
+						if kv := strings.SplitN(strings.TrimSpace(part), ":", 2); len(kv) == 2 {
+							specNames = append(specNames, strings.TrimSpace(kv[0]))
+							specValues = append(specValues, strings.TrimSpace(kv[1]))
+						} else if part = strings.TrimSpace(part); part != "" {
+							specValues = append(specValues, part)
+						}
+					}
+					result.SpecName = strings.Join(specNames, ";")
+					result.SpecValue = strings.Join(specValues, ";")
+				}
+			}
 		}
 		if // priceInfo、ok 用于本次流程后续判断的priceInfo、ok
 		priceInfo, ok := componentData["priceInfo"].(map[string]any); ok {

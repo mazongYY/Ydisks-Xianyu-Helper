@@ -512,7 +512,7 @@ func (e *automationActionExecutor) sendCard(ctx context.Context, task Task, acti
 		return 0, fmt.Errorf("卡密组 %d 已停用", card.ID)
 	}
 	if card.Type == "data" {
-		return e.sendDataCard(ctx, task, card, count)
+		return e.sendDataCard(ctx, task, action, card, count)
 	}
 	if card.Type == "api" {
 		return e.sendAPICard(ctx, task, action, card, count)
@@ -586,7 +586,7 @@ func (e *automationActionExecutor) sendAPICard(ctx context.Context, task Task, a
 }
 
 // sendDataCard 只在卡券锁内完成库存预留与恢复，把外部消息发送放到锁外。
-func (e *automationActionExecutor) sendDataCard(ctx context.Context, task Task, card *db.CardFull, count int) (int, error) {
+func (e *automationActionExecutor) sendDataCard(ctx context.Context, task Task, action db.AutomationAction, card *db.CardFull, count int) (int, error) {
 	// sent 是已经成功发送的数据卡密数量。
 	sent := 0
 	// i 表示当前数据卡密消费序号。
@@ -600,8 +600,13 @@ func (e *automationActionExecutor) sendDataCard(ctx context.Context, task Task, 
 			return sent, err
 		}
 		if strings.TrimSpace(content) != "" {
+			// text 是待发送文案：动作配置了模板时以 {card} 占位符嵌入卡密，否则发送卡密原文。
+			text := renderTemplate(content, task)
+			if tpl := strings.TrimSpace(action.MessageTemplate); tpl != "" {
+				text = renderTemplate(strings.ReplaceAll(tpl, "{card}", content), task)
+			}
 			// sendErr 保存数据卡密消息发送错误。
-			if sendErr := e.sendText(ctx, task, renderTemplate(content, task)); sendErr != nil {
+			if sendErr := e.sendText(ctx, task, text); sendErr != nil {
 				if errors.Is(sendErr, ErrMessageNotSent) {
 					// restoreUnlock 释放恢复库存所需的卡密组锁。
 					restoreUnlock := e.lockCard(card.ID)
