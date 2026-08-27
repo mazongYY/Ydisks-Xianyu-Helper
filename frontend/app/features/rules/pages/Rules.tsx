@@ -874,6 +874,16 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
                               )}
                               <span className="text-xs text-gray-500">{variant.delay_override ? `本动作延时 ${variant.delay_seconds || 0} 秒` : '使用卡密默认延时'}</span>
                             </div>
+                            <div className="md:col-span-full">
+                              <label className="block text-xs font-bold text-gray-600 mb-2">发货文案模板（可选）</label>
+                              <textarea
+                                value={variant.message_template || ''}
+                                onChange={/* 当前回调处理用户交互或异步状态变化。 */ event => updateVariant(index, { message_template: event.target.value })}
+                                placeholder="留空时只发卡密；填了会按模板发送，{'{card}'} 会被替换为实际卡密"
+                                className="w-full ios-input px-3 py-2.5 rounded-lg h-24 resize-none"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">例如：🎉 恭喜您成功下单！您的兑换码：{'{card}'}，请前往 ai.168661.xyz 兑换</p>
+                            </div>
                             <button
                               type="button"
                               disabled={displayVariants.length === 1}

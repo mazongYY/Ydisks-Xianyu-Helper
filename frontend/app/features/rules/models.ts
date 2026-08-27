@@ -249,6 +249,8 @@ export interface ShippingVariant {
   delay_override?: boolean;
   /** 变体延迟秒数。 */
   delay_seconds?: number;
+  /** 发货消息模板，{card} 会被替换为实际卡密。 */
+  message_template?: string;
   /** 变体原始配置 JSON。 */
   config_json?: string;
 }

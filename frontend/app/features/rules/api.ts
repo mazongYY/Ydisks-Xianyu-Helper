@@ -70,6 +70,7 @@ const normalizeShippingRules = (rules: any[]): ShippingRule[] => rules.map(/* å½
               enabled: action.enabled !== false,
               delay_override: cfg.delay_override === true,
               delay_seconds: Number(action.delay_seconds || 0),
+              message_template: action.message_template || '',
               config_json: action.config_json || '{}',
             };
           }),
@@ -167,6 +168,7 @@ export const updateShippingRule = async (rule: Partial<ShippingRule>): Promise<O
             enabled: variant.enabled !== false,
             sort_order: index + 1,
             delay_seconds: variant.delay_seconds || 0,
+            message_template: variant.message_template || '',
             config_json: JSON.stringify({
               spec_name: variant.spec_name || '',
               spec_value: variant.spec_value || '',

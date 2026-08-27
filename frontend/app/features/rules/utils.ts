@@ -59,6 +59,7 @@ export const emptyVariant = (): ShippingVariant => ({
   enabled: true,
   delay_override: false,
   delay_seconds: 0,
+  message_template: '',
 });
 
 // parseJSONObject 安全解析规则配置 JSON，异常或非对象值统一返回空对象。
