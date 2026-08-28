@@ -97,7 +97,6 @@ func (c *ClientImpl) FetchSoldOrdersPage(ctx context.Context, cookies string, pa
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Origin", "https://seller.goofish.com")
 	req.Header.Set("Referer", soldOrdersReferer)
-	req.Header.Set("idle_site_biz_code", "COMMONPRO")
 
 	// hc 用于本次流程后续判断的hc
 	hc := c.httpClient()

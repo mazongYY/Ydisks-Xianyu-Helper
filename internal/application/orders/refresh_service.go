@@ -285,6 +285,8 @@ func (s *RefreshService) RefreshSingle(ctx context.Context, userID int64, orderI
 	latestAfterFetch, reloadErr := s.repository.LoadCookiePlatformDetail(ctx, cookieID)
 	// credentialChanged 表示外部请求期间凭证快照是否发生变化。
 	credentialChanged := reloadErr != nil || latestAfterFetch == nil || latestAfterFetch.UserID != userID || latestAfterFetch.Value != latest.Value || latestAfterFetch.MetadataJSON != latest.MetadataJSON
+	// runningCookieValue 保存需要在凭证锁外同步的运行时 Cookie 值。
+	runningCookieValue := ""
 	if !credentialChanged {
 		// value、valueChanged、handled、persistErr 保存 Cookie 会话提交结果。
 		value, valueChanged, handled, persistErr := s.runtime.PersistCookieSession(ctx, latest, fetchResult.CookieUpdate)
@@ -292,18 +294,22 @@ func (s *RefreshService) RefreshSingle(ctx context.Context, userID int64, orderI
 			callErr = errors.Join(callErr, fmt.Errorf("保存订单详情响应 Cookie Jar: %w", persistErr))
 		} else if handled && valueChanged {
 			if value != "" {
-				s.runtime.UpdateRunningCookie(ctx, cookieID, value)
+				runningCookieValue = value
 			}
 		} else if !handled && callErr == nil && fetchResult.Detail != nil && fetchResult.Detail.UpdatedCookies != "" && fetchResult.Detail.UpdatedCookies != latest.Value {
 			// metadata 保存不含快照的 Cookie 元数据。
 			metadata := latest.MetadataJSON
 			// saveErr 保存扁平 Cookie 写入错误。
 			if saveErr := s.repository.UpdateRenewalCookie(ctx, cookieID, fetchResult.Detail.UpdatedCookies, metadata, time.Now().Unix()); saveErr == nil {
-				s.runtime.UpdateRunningCookie(ctx, cookieID, fetchResult.Detail.UpdatedCookies)
+				runningCookieValue = fetchResult.Detail.UpdatedCookies
 			}
 		}
 	}
 	unlockAfterFetch()
+	// runningCookie 同步必须在凭证锁外执行，避免 UpdateRunningCookie 重入同一把非重入互斥锁造成自死锁。
+	if runningCookieValue != "" {
+		s.runtime.UpdateRunningCookie(ctx, cookieID, runningCookieValue)
+	}
 	if credentialChanged {
 		return SingleRefreshResult{}, ErrRefreshCredentialChanged
 	}
@@ -711,6 +717,8 @@ func (s *RefreshService) refreshDetailChunk(ctx context.Context, userID int64, c
 	latestAfterDetails, reloadErr := s.repository.LoadCookiePlatformDetail(ctx, cookieID)
 	// credentialChanged 表示详情请求期间凭证快照是否发生变化。
 	credentialChanged := reloadErr != nil || latestAfterDetails == nil || latestAfterDetails.UserID != userID || latestAfterDetails.Value != latest.Value || latestAfterDetails.MetadataJSON != latest.MetadataJSON
+	// runningCookieValue 保存需要在凭证锁外同步的运行时 Cookie 值。
+	runningCookieValue := ""
 	if !credentialChanged {
 		// valueChanged、persistErr 保存 Cookie 会话提交状态及错误。
 		_, valueChanged, _, persistErr := s.runtime.PersistCookieSession(ctx, latest, lastUpdate)
@@ -718,10 +726,14 @@ func (s *RefreshService) refreshDetailChunk(ctx context.Context, userID int64, c
 			failed++
 			results = append(results, RefreshOrderResult{CookieID: cookieID, Stage: "persist_cookie", Success: false, Message: persistErr.Error()})
 		} else if valueChanged && lastUpdate.Value != "" {
-			s.runtime.UpdateRunningCookie(ctx, cookieID, lastUpdate.Value)
+			runningCookieValue = lastUpdate.Value
 		}
 	}
 	unlock()
+	// runningCookie 同步必须在凭证锁外执行，避免 UpdateRunningCookie 重入同一把非重入互斥锁造成自死锁。
+	if runningCookieValue != "" {
+		s.runtime.UpdateRunningCookie(ctx, cookieID, runningCookieValue)
+	}
 	if reloadErr != nil {
 		failed += len(targets)
 		results = append(results, RefreshOrderResult{CookieID: cookieID, Stage: "persist_cookie", Success: false, Message: "订单详情完成后账号凭证无法复核"})

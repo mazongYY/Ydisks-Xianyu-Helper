@@ -18,8 +18,11 @@ func TestFetchSoldOrdersPageRequestAndParse(t *testing.T) {
 		if r.URL.Query().Get("api") != "mtop.taobao.idle.trade.merchant.sold.get" || r.URL.Query().Get("sign") == "" {
 			t.Errorf("query=%s", r.URL.RawQuery)
 		}
-		if r.Header.Get("Origin") != "https://seller.goofish.com" || r.Header.Get("idle_site_biz_code") != "COMMONPRO" {
+		if r.Header.Get("Origin") != "https://seller.goofish.com" {
 			t.Errorf("headers=%v", r.Header)
+		}
+		if r.Header.Get("idle_site_biz_code") != "" {
+			t.Errorf("idle_site_biz_code 必须为空，该头会触发 PERMISSION_EXCEPTION::无权限访问，headers=%v", r.Header)
 		}
 		// rawBody 用于本次流程后续判断的原始请求体
 		rawBody, _ := io.ReadAll(r.Body)
